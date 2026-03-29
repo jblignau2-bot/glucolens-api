@@ -7,23 +7,21 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export const mealPlanRouter = router({
   getCurrent: protectedProcedure
-    .input(z.object({ weekStart: z.string() }))
+    .input(z.object({ weekStart: z.string().optional() }))
     .query(async ({ ctx, input }) => {
       const { data } = await supabase
         .from("meal_plans")
         .select("*")
         .eq("user_id", ctx.userId)
-        .eq("week_start_date", input.weekStart)
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
       if (!data) return null;
       // Map snake_case DB columns to camelCase for the frontend
-      // Only reference columns that definitely exist in the table
+      // Note: week_start_date does not exist in the actual schema
       return {
         id: data.id,
         userId: data.user_id,
-        weekStartDate: data.week_start_date,
         planJson: data.plan_json,
         createdAt: data.created_at ?? null,
       };
@@ -87,17 +85,16 @@ Respond ONLY with valid JSON (no markdown):
       }
 
       // Only include columns guaranteed to exist in the table.
-      // country, diabetes_type, and dietary_restrictions may not exist
-      // if the migration hasn't been applied yet.
+      // week_start_date, country, diabetes_type, and dietary_restrictions do not exist.
+      // Insert a new row each time (since week_start_date is not available for upsert conflict).
       const row: Record<string, any> = {
         user_id: ctx.userId,
-        week_start_date: input.weekStart,
         plan_json: JSON.stringify(planData),
       };
 
       const { data, error } = await supabase
         .from("meal_plans")
-        .upsert(row, { onConflict: "user_id,week_start_date" })
+        .insert(row)
         .select()
         .single();
 
@@ -105,7 +102,6 @@ Respond ONLY with valid JSON (no markdown):
       return {
         id: data.id,
         userId: data.user_id,
-        weekStartDate: data.week_start_date,
         planJson: data.plan_json,
         createdAt: data.created_at ?? null,
       };

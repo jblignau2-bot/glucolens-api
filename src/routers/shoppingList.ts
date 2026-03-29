@@ -27,7 +27,6 @@ export const shoppingListRouter = router({
         mealPlanId: data.meal_plan_id,
         listJson: data.list_json,
         createdAt: data.created_at,
-        updatedAt: data.updated_at,
       };
     }),
 
@@ -67,13 +66,16 @@ ${input.planJson}
           user_id: ctx.userId,
           meal_plan_id: input.mealPlanId,
           list_json: JSON.stringify(listData),
-          country: input.country,
-          updated_at: new Date().toISOString(),
         }, { onConflict: "meal_plan_id" })
         .select()
         .single();
 
       if (error) throw new Error(error.message);
-      return data;
+      return {
+        id: data.id,
+        mealPlanId: data.meal_plan_id,
+        listJson: data.list_json,
+        createdAt: data.created_at,
+      };
     }),
 });
