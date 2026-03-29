@@ -13,7 +13,7 @@ export const mealPlanRouter = router({
         .from("meal_plans")
         .select("*")
         .eq("user_id", ctx.userId)
-        .eq("week_start_date", input.weekStart)
+        .eq("week_start", input.weekStart)
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
@@ -21,7 +21,7 @@ export const mealPlanRouter = router({
       return {
         id: data.id,
         userId: data.user_id,
-        weekStartDate: data.week_start_date,
+        weekStart: data.week_start,
         planJson: data.plan_json,
         dietaryRestrictions: data.dietary_restrictions,
         createdAt: data.created_at ?? null,
@@ -87,14 +87,14 @@ Respond ONLY with valid JSON (no markdown):
 
       const row: Record<string, any> = {
         user_id: ctx.userId,
-        week_start_date: input.weekStart,
+        week_start: input.weekStart,
         plan_json: JSON.stringify(planData),
         dietary_restrictions: input.dietaryRestrictions ?? null,
       };
 
       const { data, error } = await supabase
         .from("meal_plans")
-        .upsert(row, { onConflict: "user_id,week_start_date" })
+        .upsert(row, { onConflict: "user_id,week_start" })
         .select()
         .single();
 
@@ -102,7 +102,7 @@ Respond ONLY with valid JSON (no markdown):
       return {
         id: data.id,
         userId: data.user_id,
-        weekStartDate: data.week_start_date,
+        weekStart: data.week_start,
         planJson: data.plan_json,
         dietaryRestrictions: data.dietary_restrictions,
         createdAt: data.created_at ?? null,
