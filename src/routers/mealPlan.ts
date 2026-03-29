@@ -23,7 +23,6 @@ export const mealPlanRouter = router({
         userId: data.user_id,
         weekStart: data.week_start,
         planJson: data.plan_json,
-        dietaryRestrictions: data.dietary_restrictions,
         createdAt: data.created_at ?? null,
       };
     }),
@@ -39,7 +38,10 @@ export const mealPlanRouter = router({
       maxDailySugar: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const prompt = `Create a 7-day diabetes-friendly meal plan for a person with ${input.diabetesType ?? "type2"} diabetes from ${input.country ?? "South Africa"}.
+      // --- 1. Call OpenAI -----------------------------------------------
+      let planData: any;
+      try {
+        const prompt = `Create a 7-day diabetes-friendly meal plan for a person with ${input.diabetesType ?? "type2"} diabetes from ${input.country ?? "South Africa"}.
 Daily targets: ~${input.dailyCalorieGoal ?? 1800} calories, max ${input.maxDailyCarbs ?? 130}g carbs, max ${input.maxDailySugar ?? 25}g sugar.
 Dietary restrictions: ${input.dietaryRestrictions || "none"}.
 
@@ -59,37 +61,36 @@ Respond ONLY with valid JSON (no markdown):
   "weeklyTip": "string"
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        max_tokens: 3000,
-        messages: [{ role: "user", content: prompt }],
-      });
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          max_tokens: 3000,
+          messages: [{ role: "user", content: prompt }],
+        });
 
-      const content = response.choices[0]?.message?.content ?? "{}";
-      // Strip markdown fencing, leading/trailing text, and any BOM
-      let clean = content
-        .replace(/^\uFEFF/, "")
-        .replace(/```json\n?/g, "")
-        .replace(/```\n?/g, "")
-        .trim();
-      // If AI returned text before/after the JSON, extract only the JSON object
-      const firstBrace = clean.indexOf("{");
-      const lastBrace = clean.lastIndexOf("}");
-      if (firstBrace !== -1 && lastBrace > firstBrace) {
-        clean = clean.slice(firstBrace, lastBrace + 1);
-      }
-      let planData: any;
-      try {
+        const content = response.choices[0]?.message?.content ?? "{}";
+        let clean = content
+          .replace(/^\uFEFF/, "")
+          .replace(/```json\n?/g, "")
+          .replace(/```\n?/g, "")
+          .trim();
+        const firstBrace = clean.indexOf("{");
+        const lastBrace = clean.lastIndexOf("}");
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+          clean = clean.slice(firstBrace, lastBrace + 1);
+        }
         planData = JSON.parse(clean);
-      } catch (parseErr: any) {
+      } catch (err: any) {
+        console.error("OpenAI / parse error:", err?.message ?? err);
         throw new Error("AI returned an invalid meal plan. Please try again.");
       }
 
+      // --- 2. Upsert into Supabase -------------------------------------
+      // Only use columns guaranteed to exist in the original schema:
+      // id, user_id, week_start (DATE), plan_json (TEXT), created_at
       const row: Record<string, any> = {
         user_id: ctx.userId,
         week_start: input.weekStart,
         plan_json: JSON.stringify(planData),
-        dietary_restrictions: input.dietaryRestrictions ?? null,
       };
 
       const { data, error } = await supabase
@@ -98,13 +99,16 @@ Respond ONLY with valid JSON (no markdown):
         .select()
         .single();
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("Supabase upsert error:", error.message);
+        throw new Error(error.message);
+      }
+
       return {
         id: data.id,
         userId: data.user_id,
         weekStart: data.week_start,
         planJson: data.plan_json,
-        dietaryRestrictions: data.dietary_restrictions,
         createdAt: data.created_at ?? null,
       };
     }),
