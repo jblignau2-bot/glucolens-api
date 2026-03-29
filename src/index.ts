@@ -30,14 +30,16 @@ app.get("/debug/schema", async (_req, res) => {
     const tables = ["profiles", "food_logs", "meal_plans", "shopping_lists", "reminders", "glucose_readings", "weight_entries"];
     const result: Record<string, any> = {};
     for (const table of tables) {
-      const { data: rows, error: err } = await supabase.from(table).select("*").limit(1);
-      if (err) {
-        result[table] = { columns: [], error: err.message };
-      } else if (rows && rows.length > 0) {
-        result[table] = { columns: Object.keys(rows[0]) };
-      } else {
-        // Empty table — try a HEAD request to get column definitions
-        result[table] = { columns: [], note: "table empty" };
+      // Use CSV select with a fake column to trigger PostgREST's column listing in the error
+      const { data: rows, error: err } = await supabase.from(table).select("__nonexistent__").limit(0);
+      if (err?.message) {
+        // PostgREST error will list available columns
+        result[table] = { error_hint: err.message };
+      }
+      // Also try getting a real row
+      const { data: real } = await supabase.from(table).select("*").limit(1);
+      if (real && real.length > 0) {
+        result[table] = { columns: Object.keys(real[0]) };
       }
     }
     res.json(result);
