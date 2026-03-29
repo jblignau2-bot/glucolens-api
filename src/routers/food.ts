@@ -153,6 +153,8 @@ export const foodRouter = router({
         .insert({
           user_id: ctx.userId,
           meal_name: input.mealName,
+          image_url: input.imageUrl,
+          identified_foods_json: JSON.stringify(input.identifiedFoods),
           calories: input.nutrition.calories,
           total_sugar: input.nutrition.totalSugar_g,
           total_carbs: input.nutrition.totalCarbs_g,
@@ -165,6 +167,10 @@ export const foodRouter = router({
           rating_type2: input.diabetesRating.type2.rating,
           reason_type1: input.diabetesRating.type1.reason,
           reason_type2: input.diabetesRating.type2.reason,
+          why_risky_json: JSON.stringify(input.whyRisky),
+          healthier_alternatives_json: JSON.stringify(input.healthierAlternatives),
+          foods_to_avoid_json: JSON.stringify(input.foodsToAvoid),
+          item_breakdown_json: JSON.stringify(input.itemBreakdown ?? []),
           logged_at: new Date().toISOString(),
           country: input.country,
         })

@@ -7,22 +7,23 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export const mealPlanRouter = router({
   getCurrent: protectedProcedure
-    .input(z.object({ weekStart: z.string().optional() }))
+    .input(z.object({ weekStart: z.string() }))
     .query(async ({ ctx, input }) => {
       const { data } = await supabase
         .from("meal_plans")
         .select("*")
         .eq("user_id", ctx.userId)
+        .eq("week_start_date", input.weekStart)
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
       if (!data) return null;
-      // Map snake_case DB columns to camelCase for the frontend
-      // Note: week_start_date does not exist in the actual schema
       return {
         id: data.id,
         userId: data.user_id,
+        weekStartDate: data.week_start_date,
         planJson: data.plan_json,
+        dietaryRestrictions: data.dietary_restrictions,
         createdAt: data.created_at ?? null,
       };
     }),
@@ -84,17 +85,16 @@ Respond ONLY with valid JSON (no markdown):
         throw new Error("AI returned an invalid meal plan. Please try again.");
       }
 
-      // Only include columns guaranteed to exist in the table.
-      // week_start_date, country, diabetes_type, and dietary_restrictions do not exist.
-      // Insert a new row each time (since week_start_date is not available for upsert conflict).
       const row: Record<string, any> = {
         user_id: ctx.userId,
+        week_start_date: input.weekStart,
         plan_json: JSON.stringify(planData),
+        dietary_restrictions: input.dietaryRestrictions ?? null,
       };
 
       const { data, error } = await supabase
         .from("meal_plans")
-        .insert(row)
+        .upsert(row, { onConflict: "user_id,week_start_date" })
         .select()
         .single();
 
@@ -102,7 +102,9 @@ Respond ONLY with valid JSON (no markdown):
       return {
         id: data.id,
         userId: data.user_id,
+        weekStartDate: data.week_start_date,
         planJson: data.plan_json,
+        dietaryRestrictions: data.dietary_restrictions,
         createdAt: data.created_at ?? null,
       };
     }),
