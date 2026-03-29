@@ -19,14 +19,13 @@ export const mealPlanRouter = router({
         .single();
       if (!data) return null;
       // Map snake_case DB columns to camelCase for the frontend
+      // Only reference columns that definitely exist in the table
       return {
         id: data.id,
         userId: data.user_id,
         weekStartDate: data.week_start_date,
         planJson: data.plan_json,
-        dietaryRestrictions: data.dietary_restrictions,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+        createdAt: data.created_at ?? null,
       };
     }),
 
@@ -94,7 +93,6 @@ Respond ONLY with valid JSON (no markdown):
         user_id: ctx.userId,
         week_start_date: input.weekStart,
         plan_json: JSON.stringify(planData),
-        updated_at: new Date().toISOString(),
       };
 
       const { data, error } = await supabase
@@ -104,15 +102,12 @@ Respond ONLY with valid JSON (no markdown):
         .single();
 
       if (error) throw new Error(error.message);
-      // Map snake_case DB columns to camelCase for the frontend
       return {
         id: data.id,
         userId: data.user_id,
         weekStartDate: data.week_start_date,
         planJson: data.plan_json,
-        dietaryRestrictions: data.dietary_restrictions,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+        createdAt: data.created_at ?? null,
       };
     }),
 });

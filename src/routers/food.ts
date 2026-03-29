@@ -171,7 +171,6 @@ export const foodRouter = router({
           healthier_alternatives_json: JSON.stringify(input.healthierAlternatives),
           foods_to_avoid_json: JSON.stringify(input.foodsToAvoid),
           item_breakdown_json: JSON.stringify(input.itemBreakdown ?? []),
-          country: input.country,
           logged_at: new Date().toISOString(),
         })
         .select()
