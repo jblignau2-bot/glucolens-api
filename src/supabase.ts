@@ -7,6 +7,7 @@ if (!url || !key) {
   throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
 }
 
+// Service role client — full DB access, bypasses RLS
 export const supabase = createClient(url, key, {
   auth: { autoRefreshToken: false, persistSession: false },
 });

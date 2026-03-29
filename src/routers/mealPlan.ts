@@ -9,10 +9,25 @@ export const mealPlanRouter = router({
   getCurrent: protectedProcedure
     .input(z.object({ weekStart: z.string() }))
     .query(async ({ ctx, input }) => {
-      const { data } = await supabase.from("meal_plans").select("*")
-        .eq("user_id", ctx.userId).eq("week_start_date", input.weekStart)
-        .order("created_at", { ascending: false }).limit(1).single();
-      return data ?? null;
+      const { data } = await supabase
+        .from("meal_plans")
+        .select("*")
+        .eq("user_id", ctx.userId)
+        .eq("week_start_date", input.weekStart)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (!data) return null;
+      // Map snake_case DB columns to camelCase for the frontend
+      return {
+        id: data.id,
+        userId: data.user_id,
+        weekStartDate: data.week_start_date,
+        planJson: data.plan_json,
+        dietaryRestrictions: data.dietary_restrictions,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
     }),
 
   generate: protectedProcedure
@@ -29,22 +44,75 @@ export const mealPlanRouter = router({
       const prompt = `Create a 7-day diabetes-friendly meal plan for a person with ${input.diabetesType ?? "type2"} diabetes from ${input.country ?? "South Africa"}.
 Daily targets: ~${input.dailyCalorieGoal ?? 1800} calories, max ${input.maxDailyCarbs ?? 130}g carbs, max ${input.maxDailySugar ?? 25}g sugar.
 Dietary restrictions: ${input.dietaryRestrictions || "none"}.
+
 Respond ONLY with valid JSON (no markdown):
-{"days":[{"day":"Monday","meals":{"breakfast":{"name":"string","calories":0,"carbs_g":0,"description":"string"},"lunch":{"name":"string","calories":0,"carbs_g":0,"description":"string"},"dinner":{"name":"string","calories":0,"carbs_g":0,"description":"string"},"snack":{"name":"string","calories":0,"carbs_g":0,"description":"string"}}}],"weeklyTip":"string"}`;
+{
+  "days": [
+    {
+      "day": "Monday",
+      "meals": {
+        "breakfast": { "name": "string", "calories": number, "carbs_g": number, "description": "string" },
+        "lunch": { "name": "string", "calories": number, "carbs_g": number, "description": "string" },
+        "dinner": { "name": "string", "calories": number, "carbs_g": number, "description": "string" },
+        "snack": { "name": "string", "calories": number, "carbs_g": number, "description": "string" }
+      }
+    }
+  ],
+  "weeklyTip": "string"
+}`;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini", max_tokens: 3000,
+        model: "gpt-4o-mini",
+        max_tokens: 3000,
         messages: [{ role: "user", content: prompt }],
       });
-      const content2 = response.choices[0]?.message?.content ?? "{}";
-      const planData = JSON.parse(content2.replace(/```json\n?/g,"").replace(/```\n?/g,"").trim());
 
-      const { data, error } = await supabase.from("meal_plans").upsert({
-        user_id: ctx.userId, week_start_date: input.weekStart,
-        plan_json: JSON.stringify(planData), dietary_restrictions: input.dietaryRestrictions,
-        country: input.country, diabetes_type: input.diabetesType, updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id,week_start_date" }).select().single();
+      const content = response.choices[0]?.message?.content ?? "{}";
+      // Strip markdown fencing, leading/trailing text, and any BOM
+      let clean = content
+        .replace(/^\uFEFF/, "")
+        .replace(/```json\n?/g, "")
+        .replace(/```\n?/g, "")
+        .trim();
+      // If AI returned text before/after the JSON, extract only the JSON object
+      const firstBrace = clean.indexOf("{");
+      const lastBrace = clean.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        clean = clean.slice(firstBrace, lastBrace + 1);
+      }
+      let planData: any;
+      try {
+        planData = JSON.parse(clean);
+      } catch (parseErr: any) {
+        throw new Error("AI returned an invalid meal plan. Please try again.");
+      }
+
+      // Only include columns guaranteed to exist in the table.
+      // country, diabetes_type, and dietary_restrictions may not exist
+      // if the migration hasn't been applied yet.
+      const row: Record<string, any> = {
+        user_id: ctx.userId,
+        week_start_date: input.weekStart,
+        plan_json: JSON.stringify(planData),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await supabase
+        .from("meal_plans")
+        .upsert(row, { onConflict: "user_id,week_start_date" })
+        .select()
+        .single();
+
       if (error) throw new Error(error.message);
-      return data;
+      // Map snake_case DB columns to camelCase for the frontend
+      return {
+        id: data.id,
+        userId: data.user_id,
+        weekStartDate: data.week_start_date,
+        planJson: data.plan_json,
+        dietaryRestrictions: data.dietary_restrictions,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
     }),
 });
