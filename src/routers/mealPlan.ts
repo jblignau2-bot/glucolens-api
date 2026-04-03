@@ -106,7 +106,7 @@ Generate ALL 7 days (Monday through Sunday). Each day MUST have breakfast, lunch
 
         const response = await openai.chat.completions.create({
           model: "gpt-4o-mini",
-          max_tokens: 10000,
+          max_tokens: 16384,
           temperature: 0.7,
           messages: [{ role: "user", content: prompt }],
         });
@@ -128,10 +128,13 @@ Generate ALL 7 days (Monday through Sunday). Each day MUST have breakfast, lunch
           throw new Error("AI returned an incomplete meal plan. Please try again.");
         }
       } catch (err: any) {
-        console.error("OpenAI / parse error:", err?.message ?? err);
-        throw new Error(
-          "AI returned an invalid meal plan. Please try again."
-        );
+        const msg = err?.message ?? String(err);
+        console.error("OpenAI / parse error:", msg);
+        // Surface the real reason so we can debug
+        if (msg.includes("incomplete")) {
+          throw new Error("AI returned an incomplete meal plan — try again.");
+        }
+        throw new Error(`Meal plan generation failed: ${msg.slice(0, 120)}`);
       }
 
       // Inject user limits into the plan so the frontend can display them
