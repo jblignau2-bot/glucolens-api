@@ -100,7 +100,7 @@ export const foodRouter = router({
       return results.map((r: any) => ({
         id: r.id,
         mealName: r.meal_name,
-        imageUrl: r.image_url ?? undefined,
+        // imageUrl not in original schema
         calories: r.calories,
         totalSugar: r.total_sugar,
         totalCarbs: r.total_carbs,
@@ -113,11 +113,11 @@ export const foodRouter = router({
         ratingType2: r.rating_type2,
         reasonType1: r.reason_type1,
         reasonType2: r.reason_type2,
-        whyRisky: tryParse(r.why_risky_json ?? null, []),
-        healthierAlternatives: tryParse(r.healthier_alternatives_json ?? null, []),
-        foodsToAvoid: tryParse(r.foods_to_avoid_json ?? null, []),
-        itemBreakdown: tryParse(r.item_breakdown_json ?? null, []),
-        identifiedFoods: tryParse(r.identified_foods_json ?? null, []),
+        whyRisky: tryParse(r.why_risky, []),
+        healthierAlternatives: tryParse(r.healthier_alternatives, []),
+        foodsToAvoid: tryParse(r.foods_to_avoid, []),
+        itemBreakdown: tryParse(r.item_breakdown, []),
+        identifiedFoods: tryParse(r.identified_foods, []),
         loggedAt: r.logged_at,
       }));
     }),
@@ -153,8 +153,7 @@ export const foodRouter = router({
         .insert({
           user_id: ctx.userId,
           meal_name: input.mealName,
-          image_url: input.imageUrl,
-          identified_foods_json: JSON.stringify(input.identifiedFoods),
+          identified_foods: input.identifiedFoods,
           calories: input.nutrition.calories,
           total_sugar: input.nutrition.totalSugar_g,
           total_carbs: input.nutrition.totalCarbs_g,
@@ -167,10 +166,10 @@ export const foodRouter = router({
           rating_type2: input.diabetesRating.type2.rating,
           reason_type1: input.diabetesRating.type1.reason,
           reason_type2: input.diabetesRating.type2.reason,
-          why_risky_json: JSON.stringify(input.whyRisky),
-          healthier_alternatives_json: JSON.stringify(input.healthierAlternatives),
-          foods_to_avoid_json: JSON.stringify(input.foodsToAvoid),
-          item_breakdown_json: JSON.stringify(input.itemBreakdown ?? []),
+          why_risky: input.whyRisky,
+          healthier_alternatives: input.healthierAlternatives,
+          foods_to_avoid: input.foodsToAvoid,
+          item_breakdown: input.itemBreakdown ?? [],
           logged_at: new Date().toISOString(),
           country: input.country,
         })
@@ -320,7 +319,12 @@ export const foodRouter = router({
     }),
 });
 
-function tryParse(json: string | null, fallback: any) {
-  if (!json) return fallback;
-  try { return JSON.parse(json); } catch { return fallback; }
+function tryParse(val: any, fallback: any) {
+  if (val == null) return fallback;
+  // JSONB columns return as objects already, TEXT columns return as strings
+  if (typeof val === "object") return val;
+  if (typeof val === "string") {
+    try { return JSON.parse(val); } catch { return fallback; }
+  }
+  return fallback;
 }

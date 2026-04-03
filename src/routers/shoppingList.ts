@@ -126,16 +126,20 @@ IMPORTANT:
         );
       }
 
+      // Delete any existing shopping list for this meal plan first
+      await supabase
+        .from("shopping_lists")
+        .delete()
+        .eq("user_id", ctx.userId)
+        .eq("meal_plan_id", input.mealPlanId);
+
       const { data, error } = await supabase
         .from("shopping_lists")
-        .upsert(
-          {
-            user_id: ctx.userId,
-            meal_plan_id: input.mealPlanId,
-            list_json: JSON.stringify(listData),
-          },
-          { onConflict: "meal_plan_id" }
-        )
+        .insert({
+          user_id: ctx.userId,
+          meal_plan_id: input.mealPlanId,
+          list_json: JSON.stringify(listData),
+        })
         .select()
         .single();
 
