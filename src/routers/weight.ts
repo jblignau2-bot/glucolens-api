@@ -7,16 +7,16 @@ export const weightRouter = router({
     .input(z.object({ limit: z.number().default(30) }))
     .query(async ({ ctx, input }) => {
       const { data, error } = await supabase
-        .from("weight_logs")
+        .from("weight_entries")
         .select("*")
         .eq("user_id", ctx.userId)
-        .order("recorded_at", { ascending: false })
+        .order("logged_at", { ascending: false })
         .limit(input.limit);
       if (error) throw new Error(error.message);
       return (data || []).map((r: any) => ({
         id: r.id,
-        valueKg: r.weight_kg,
-        loggedAt: r.recorded_at,
+        valueKg: r.value_kg,
+        loggedAt: r.logged_at,
       }));
     }),
 
@@ -27,11 +27,11 @@ export const weightRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const { data, error } = await supabase
-        .from("weight_logs")
+        .from("weight_entries")
         .insert({
           user_id: ctx.userId,
-          weight_kg: input.valueKg,
-          recorded_at: input.loggedAt ?? new Date().toISOString(),
+          value_kg: input.valueKg,
+          logged_at: input.loggedAt ?? new Date().toISOString(),
         })
         .select()
         .single();
@@ -43,7 +43,7 @@ export const weightRouter = router({
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const { error } = await supabase
-        .from("weight_logs")
+        .from("weight_entries")
         .delete()
         .eq("id", input.id)
         .eq("user_id", ctx.userId);

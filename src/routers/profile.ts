@@ -5,7 +5,7 @@ import { supabase } from "../supabase";
 export const profileRouter = router({
   get: protectedProcedure.query(async ({ ctx }) => {
     const { data } = await supabase
-      .from("user_profiles")
+      .from("profiles")
       .select("*")
       .eq("user_id", ctx.userId)
       .single();
@@ -16,8 +16,8 @@ export const profileRouter = router({
       firstName: data.first_name,
       lastName: data.last_name,
       country: data.country,
-      countryCode: data.country_code ?? null,
-      countryFlag: data.country_flag ?? null,
+      countryCode: data.country_code,
+      countryFlag: data.country_flag,
       heightCm: data.height_cm,
       weightKg: data.weight_kg,
       age: data.age,
@@ -27,7 +27,7 @@ export const profileRouter = router({
       dailyCalorieGoal: data.daily_calorie_goal ?? 1800,
       maxDailySugar: data.max_daily_sugar ?? 25,
       maxDailyCarbs: data.max_daily_carbs ?? 130,
-      dietaryRestrictions: data.dietary_prefs,
+      dietaryRestrictions: data.dietary_restrictions,
       onboarding_complete: data.onboarding_complete,
       onboardingComplete: data.onboarding_complete === 1,
     };
@@ -35,7 +35,7 @@ export const profileRouter = router({
 
   goals: protectedProcedure.query(async ({ ctx }) => {
     const { data } = await supabase
-      .from("user_profiles")
+      .from("profiles")
       .select("daily_calorie_goal, max_daily_sugar, max_daily_carbs")
       .eq("user_id", ctx.userId)
       .single();
@@ -64,22 +64,18 @@ export const profileRouter = router({
       dailyCalorieGoal: z.number().optional(),
       maxDailySugar: z.number().optional(),
       maxDailyCarbs: z.number().optional(),
-      dietaryPrefs: z.string().optional(),
       dietaryRestrictions: z.string().optional(),
+      dietaryPrefs: z.string().optional(),
       onboardingComplete: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      // Map diabetes type for schema constraint
-      let dbDiabetesType = input.diabetesType;
-      if (dbDiabetesType === "none") dbDiabetesType = "unsure";
-
+      // Build row with only provided fields to avoid nulling existing data
       const row: Record<string, any> = {
         user_id: ctx.userId,
         updated_at: new Date().toISOString(),
       };
       if (input.firstName !== undefined) row.first_name = input.firstName;
       if (input.lastName !== undefined) row.last_name = input.lastName;
-      if (input.email !== undefined) row.email = input.email;
       if (input.country !== undefined) row.country = input.country;
       if (input.countryCode !== undefined) row.country_code = input.countryCode;
       if (input.countryFlag !== undefined) row.country_flag = input.countryFlag;
@@ -88,16 +84,16 @@ export const profileRouter = router({
       if (input.age !== undefined) row.age = input.age;
       if (input.gender !== undefined) row.gender = input.gender;
       if (input.activityLevel !== undefined) row.activity_level = input.activityLevel;
-      if (dbDiabetesType !== undefined) row.diabetes_type = dbDiabetesType;
+      if (input.diabetesType !== undefined) row.diabetes_type = input.diabetesType;
       if (input.dailyCalorieGoal !== undefined) row.daily_calorie_goal = input.dailyCalorieGoal;
       if (input.maxDailySugar !== undefined) row.max_daily_sugar = input.maxDailySugar;
       if (input.maxDailyCarbs !== undefined) row.max_daily_carbs = input.maxDailyCarbs;
-      if (input.dietaryPrefs !== undefined) row.dietary_prefs = input.dietaryPrefs;
-      if (input.dietaryRestrictions !== undefined) row.dietary_prefs = input.dietaryRestrictions;
+      if (input.dietaryRestrictions !== undefined) row.dietary_restrictions = input.dietaryRestrictions;
+      if (input.dietaryPrefs !== undefined) row.dietary_restrictions = input.dietaryPrefs;
       if (input.onboardingComplete !== undefined) row.onboarding_complete = input.onboardingComplete;
 
       const { data, error } = await supabase
-        .from("user_profiles")
+        .from("profiles")
         .upsert(row, { onConflict: "user_id" })
         .select()
         .single();
@@ -109,8 +105,8 @@ export const profileRouter = router({
         firstName: data.first_name,
         lastName: data.last_name,
         country: data.country,
-        countryCode: data.country_code ?? null,
-        countryFlag: data.country_flag ?? null,
+        countryCode: data.country_code,
+        countryFlag: data.country_flag,
         heightCm: data.height_cm,
         weightKg: data.weight_kg,
         age: data.age,
@@ -120,7 +116,7 @@ export const profileRouter = router({
         dailyCalorieGoal: data.daily_calorie_goal ?? 1800,
         maxDailySugar: data.max_daily_sugar ?? 25,
         maxDailyCarbs: data.max_daily_carbs ?? 130,
-        dietaryRestrictions: data.dietary_prefs,
+        dietaryRestrictions: data.dietary_restrictions,
         onboarding_complete: data.onboarding_complete,
         onboardingComplete: data.onboarding_complete === 1,
       };
