@@ -12,12 +12,6 @@ export async function createContext({ req }: CreateExpressContextOptions) {
     userId = data.user?.id ?? null;
   }
 
-  // ── Dev bypass: when DEV_USER_ID is set, skip auth entirely ──
-  // Remove this in production!
-  if (!userId && process.env.DEV_USER_ID) {
-    userId = process.env.DEV_USER_ID;
-  }
-
   return { userId };
 }
 

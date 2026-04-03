@@ -40,7 +40,7 @@ export const weightRouter = router({
     }),
 
   delete: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: z.string().or(z.number()).transform(String) }))
     .mutation(async ({ ctx, input }) => {
       const { error } = await supabase
         .from("weight_entries")

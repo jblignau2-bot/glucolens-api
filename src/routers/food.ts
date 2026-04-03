@@ -1,9 +1,18 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { supabase } from "../supabase";
-import OpenAI from "openai";
+import { openai } from "../openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// ─── Helper functions ────────────────────────────────────────────────────────
+function tryParse(val: any, fallback: any) {
+  if (val == null) return fallback;
+  // JSONB columns return as objects already, TEXT columns return as strings
+  if (typeof val === "object") return val;
+  if (typeof val === "string") {
+    try { return JSON.parse(val); } catch { return fallback; }
+  }
+  return fallback;
+}
 
 // ─── Shared analysis prompt ──────────────────────────────────────────────────
 function buildAnalysisPrompt(country: string, diabetesType: string) {
@@ -181,7 +190,7 @@ export const foodRouter = router({
 
   analyze: protectedProcedure
     .input(z.object({
-      imageBase64: z.string(),
+      imageBase64: z.string().max(5_000_000, "Image too large"),
       country: z.string().optional(),
       diabetesType: z.string().optional(),
     }))
@@ -197,13 +206,14 @@ export const foodRouter = router({
           ],
         }],
       });
-      const content = response.choices[0]?.message?.content ?? "{}";
+      const content = response.choices[0]?.message?.content;
+      if (!content) throw new Error("AI returned no analysis. Please try again.");
       return await parseAnalysis(content);
     }),
 
   analyzeText: protectedProcedure
     .input(z.object({
-      description: z.string(),
+      description: z.string().max(2000, "Description too long"),
       country: z.string().optional(),
       diabetesType: z.string().optional(),
     }))
@@ -216,20 +226,33 @@ export const foodRouter = router({
           content: `${buildAnalysisPrompt(input.country ?? "", input.diabetesType ?? "type2")}\n\nMeal description: ${input.description}`,
         }],
       });
-      const content = response.choices[0]?.message?.content ?? "{}";
+      const content = response.choices[0]?.message?.content;
+      if (!content) throw new Error("AI returned no analysis. Please try again.");
       return await parseAnalysis(content);
     }),
 
   analyzeBarcode: protectedProcedure
     .input(z.object({
-      barcode: z.string(),
+      barcode: z.string().regex(/^\d{8,14}$/, "Invalid barcode format"),
       country: z.string().optional(),
       diabetesType: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
       // Fetch from Open Food Facts (free, no API key)
-      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${input.barcode}.json`);
+      let res: Response;
+      try {
+        res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${input.barcode}.json`, {
+          headers: { "User-Agent": "GlucoLens/1.0" },
+        });
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+      } catch (err: any) {
+        throw new Error("Could not look up barcode. Check your connection and try again.");
+      }
       const data = await res.json() as any;
+
+      if (!data.product?.nutriments) {
+        throw new Error("Product data is incomplete. Try scanning the photo instead.");
+      }
 
       if (data.status !== 1 || !data.product) {
         throw new Error("Product not found. Try scanning the photo instead.");
@@ -289,9 +312,11 @@ export const foodRouter = router({
       .eq("user_id", ctx.userId)
       .order("logged_at", { ascending: false });
 
+    const escapeCsv = (val: string) => `"${String(val ?? "").replace(/"/g, '""')}"`;
+
     const rows = (data || []).map((r: any) => [
       r.logged_at,
-      `"${r.meal_name}"`,
+      escapeCsv(r.meal_name),
       r.calories,
       r.total_carbs,
       r.total_sugar,
@@ -318,13 +343,3 @@ export const foodRouter = router({
       return { ok: true };
     }),
 });
-
-function tryParse(val: any, fallback: any) {
-  if (val == null) return fallback;
-  // JSONB columns return as objects already, TEXT columns return as strings
-  if (typeof val === "object") return val;
-  if (typeof val === "string") {
-    try { return JSON.parse(val); } catch { return fallback; }
-  }
-  return fallback;
-}

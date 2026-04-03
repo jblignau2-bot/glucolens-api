@@ -89,7 +89,7 @@ export const profileRouter = router({
       if (input.maxDailySugar !== undefined) row.max_daily_sugar = input.maxDailySugar;
       if (input.maxDailyCarbs !== undefined) row.max_daily_carbs = input.maxDailyCarbs;
       if (input.dietaryRestrictions !== undefined) row.dietary_restrictions = input.dietaryRestrictions;
-      if (input.dietaryPrefs !== undefined) row.dietary_restrictions = input.dietaryPrefs;
+      if (input.dietaryPrefs !== undefined && input.dietaryRestrictions === undefined) row.dietary_restrictions = input.dietaryPrefs;
       if (input.onboardingComplete !== undefined) row.onboarding_complete = input.onboardingComplete;
 
       const { data, error } = await supabase

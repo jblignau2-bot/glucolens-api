@@ -1,9 +1,7 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { supabase } from "../supabase";
-import OpenAI from "openai";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { openai } from "../openai";
 
 export const mealPlanRouter = router({
   getCurrent: protectedProcedure
@@ -108,12 +106,13 @@ Generate ALL 7 days (Monday through Sunday). Each day MUST have breakfast, lunch
 
         const response = await openai.chat.completions.create({
           model: "gpt-4o-mini",
-          max_tokens: 7000,
+          max_tokens: 10000,
           temperature: 0.7,
           messages: [{ role: "user", content: prompt }],
         });
 
-        const content = response.choices[0]?.message?.content ?? "{}";
+        const content = response.choices[0]?.message?.content;
+        if (!content) throw new Error("AI returned no meal plan. Please try again.");
         let clean = content
           .replace(/^\uFEFF/, "")
           .replace(/```json\n?/g, "")
@@ -125,6 +124,9 @@ Generate ALL 7 days (Monday through Sunday). Each day MUST have breakfast, lunch
           clean = clean.slice(firstBrace, lastBrace + 1);
         }
         planData = JSON.parse(clean);
+        if (!planData?.days || !Array.isArray(planData.days) || planData.days.length < 7) {
+          throw new Error("AI returned an incomplete meal plan. Please try again.");
+        }
       } catch (err: any) {
         console.error("OpenAI / parse error:", err?.message ?? err);
         throw new Error(

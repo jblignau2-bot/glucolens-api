@@ -1,9 +1,7 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { supabase } from "../supabase";
-import OpenAI from "openai";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { openai } from "../openai";
 
 export const shoppingListRouter = router({
   getCurrent: protectedProcedure
@@ -107,7 +105,8 @@ IMPORTANT:
           messages: [{ role: "user", content: prompt }],
         });
 
-        const content = response.choices[0]?.message?.content ?? "{}";
+        const content = response.choices[0]?.message?.content;
+        if (!content) throw new Error("AI returned no shopping list. Please try again.");
         let clean = content
           .replace(/^\uFEFF/, "")
           .replace(/```json\n?/g, "")
@@ -119,6 +118,9 @@ IMPORTANT:
           clean = clean.slice(firstBrace, lastBrace + 1);
         }
         listData = JSON.parse(clean);
+        if (!listData?.stores || !listData?.categories) {
+          throw new Error("AI returned an incomplete shopping list. Please try again.");
+        }
       } catch (err: any) {
         console.error("Shopping list AI/parse error:", err?.message ?? err);
         throw new Error(
@@ -127,11 +129,14 @@ IMPORTANT:
       }
 
       // Delete any existing shopping list for this meal plan first
-      await supabase
+      const { error: deleteError } = await supabase
         .from("shopping_lists")
         .delete()
         .eq("user_id", ctx.userId)
         .eq("meal_plan_id", input.mealPlanId);
+      if (deleteError) {
+        console.error("Shopping list delete error:", deleteError.message);
+      }
 
       const { data, error } = await supabase
         .from("shopping_lists")
