@@ -331,6 +331,43 @@ export const foodRouter = router({
     return [header, ...rows].join("\n");
   }),
 
+  update: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      mealName: z.string().optional(),
+      calories: z.number().optional(),
+      totalSugar: z.number().optional(),
+      totalCarbs: z.number().optional(),
+      glycemicIndex: z.number().optional(),
+      glycemicLoad: z.number().optional(),
+      protein: z.number().optional(),
+      fat: z.number().optional(),
+      fiber: z.number().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...updates } = input;
+      const row: Record<string, any> = {};
+      if (updates.mealName !== undefined) row.meal_name = updates.mealName;
+      if (updates.calories !== undefined) row.calories = updates.calories;
+      if (updates.totalSugar !== undefined) row.total_sugar = updates.totalSugar;
+      if (updates.totalCarbs !== undefined) row.total_carbs = updates.totalCarbs;
+      if (updates.glycemicIndex !== undefined) row.glycemic_index = updates.glycemicIndex;
+      if (updates.glycemicLoad !== undefined) row.glycemic_load = updates.glycemicLoad;
+      if (updates.protein !== undefined) row.protein = updates.protein;
+      if (updates.fat !== undefined) row.fat = updates.fat;
+      if (updates.fiber !== undefined) row.fiber = updates.fiber;
+
+      if (Object.keys(row).length === 0) return { ok: true };
+
+      const { error } = await supabase
+        .from("food_logs")
+        .update(row)
+        .eq("id", id)
+        .eq("user_id", ctx.userId);
+      if (error) throw new Error(error.message);
+      return { ok: true };
+    }),
+
   delete: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {

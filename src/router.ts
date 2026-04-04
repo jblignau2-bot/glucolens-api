@@ -7,6 +7,7 @@ import { mealPlanRouter } from "./routers/mealPlan";
 import { shoppingListRouter } from "./routers/shoppingList";
 import { remindersRouter } from "./routers/reminders";
 import { reportsRouter } from "./routers/reports";
+import { goalsRouter } from "./routers/goals";
 
 export const appRouter = router({
   profile: profileRouter,
@@ -17,6 +18,7 @@ export const appRouter = router({
   shoppingList: shoppingListRouter,
   reminders: remindersRouter,
   reports: reportsRouter,
+  goals: goalsRouter,
 });
 
 export type AppRouter = typeof appRouter;
