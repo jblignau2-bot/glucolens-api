@@ -28,6 +28,8 @@ export const profileRouter = router({
       maxDailySugar: data.max_daily_sugar ?? 25,
       maxDailyCarbs: data.max_daily_carbs ?? 130,
       dietaryRestrictions: data.dietary_restrictions,
+      allergies: data.allergies ?? null,
+      medication: data.medication ?? null,
       onboarding_complete: data.onboarding_complete,
       onboardingComplete: data.onboarding_complete === 1,
     };
@@ -66,6 +68,8 @@ export const profileRouter = router({
       maxDailyCarbs: z.number().optional(),
       dietaryRestrictions: z.string().optional(),
       dietaryPrefs: z.string().optional(),
+      allergies: z.string().optional().nullable(),
+      medication: z.string().optional().nullable(),
       onboardingComplete: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -90,6 +94,8 @@ export const profileRouter = router({
       if (input.maxDailyCarbs !== undefined) row.max_daily_carbs = input.maxDailyCarbs;
       if (input.dietaryRestrictions !== undefined) row.dietary_restrictions = input.dietaryRestrictions;
       if (input.dietaryPrefs !== undefined && input.dietaryRestrictions === undefined) row.dietary_restrictions = input.dietaryPrefs;
+      if (input.allergies !== undefined) row.allergies = input.allergies;
+      if (input.medication !== undefined) row.medication = input.medication;
       if (input.onboardingComplete !== undefined) row.onboarding_complete = input.onboardingComplete;
 
       const { data, error } = await supabase
@@ -117,6 +123,8 @@ export const profileRouter = router({
         maxDailySugar: data.max_daily_sugar ?? 25,
         maxDailyCarbs: data.max_daily_carbs ?? 130,
         dietaryRestrictions: data.dietary_restrictions,
+        allergies: data.allergies ?? null,
+        medication: data.medication ?? null,
         onboarding_complete: data.onboarding_complete,
         onboardingComplete: data.onboarding_complete === 1,
       };
