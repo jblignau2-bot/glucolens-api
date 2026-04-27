@@ -16,21 +16,26 @@ export const weightRouter = router({
       return (data || []).map((r: any) => ({
         id: r.id,
         valueKg: r.value_kg,
+        weightKg: r.value_kg,
         loggedAt: r.logged_at,
       }));
     }),
 
   add: protectedProcedure
     .input(z.object({
-      valueKg: z.number(),
+      valueKg: z.number().optional(),
+      weightKg: z.number().optional(),
+      notes: z.string().optional(),
       loggedAt: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      const valueKg = input.valueKg ?? input.weightKg;
+      if (valueKg == null) throw new Error("Weight value is required");
       const { data, error } = await supabase
         .from("weight_entries")
         .insert({
           user_id: ctx.userId,
-          value_kg: input.valueKg,
+          value_kg: valueKg,
           logged_at: input.loggedAt ?? new Date().toISOString(),
         })
         .select()

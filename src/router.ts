@@ -9,6 +9,7 @@ import { remindersRouter } from "./routers/reminders";
 import { reportsRouter } from "./routers/reports";
 import { goalsRouter } from "./routers/goals";
 import { bodyMeasurementsRouter } from "./routers/bodyMeasurements";
+import { chatRouter } from "./routers/chat";
 
 export const appRouter = router({
   profile: profileRouter,
@@ -21,6 +22,7 @@ export const appRouter = router({
   reports: reportsRouter,
   goals: goalsRouter,
   bodyMeasurements: bodyMeasurementsRouter,
+  chat: chatRouter,
 });
 
 export type AppRouter = typeof appRouter;

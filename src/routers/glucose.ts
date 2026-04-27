@@ -16,6 +16,7 @@ export const glucoseRouter = router({
       return (data || []).map((r: any) => ({
         id: r.id,
         value: r.value,
+        valueMmol: r.unit === "mgdl" ? Math.round((r.value / 18) * 10) / 10 : r.value,
         unit: r.unit ?? "mmol",
         loggedAt: r.logged_at,
       }));
@@ -23,16 +24,21 @@ export const glucoseRouter = router({
 
   add: protectedProcedure
     .input(z.object({
-      value: z.number(),
+      value: z.number().optional(),
+      valueMmol: z.number().optional(),
+      readingType: z.string().optional(),
+      notes: z.string().optional(),
       unit: z.enum(["mmol", "mgdl"]).default("mmol"),
       loggedAt: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      const value = input.value ?? input.valueMmol;
+      if (value == null) throw new Error("Glucose value is required");
       const { data, error } = await supabase
         .from("glucose_readings")
         .insert({
           user_id: ctx.userId,
-          value: input.value,
+          value,
           unit: input.unit,
           logged_at: input.loggedAt ?? new Date().toISOString(),
         })
